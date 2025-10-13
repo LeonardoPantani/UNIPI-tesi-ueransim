@@ -1,0 +1,15 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/leonardo/UERANSIM/cmake-build-release/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/ext/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/utils/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/asn/asn1c/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/asn/rrc/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/asn/ngap/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/lib/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/gnb/cmake_install.cmake",
+		"/home/leonardo/UERANSIM/cmake-build-release/src/ue/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
