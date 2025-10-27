@@ -4,8 +4,8 @@
     {
       "label": "Avvia UERANSIM",
       "dependsOn": [
-        "gnb",
-        "network"
+        "network",
+        "gnb"
       ],
       "problemMatcher": []
     },
