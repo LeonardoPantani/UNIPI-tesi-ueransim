@@ -1,80 +1,29 @@
 {
   "version": "2.0.0",
+  "presentation": {
+    "panel": "new"
+  },
+  "problemMatcher": [],
   "tasks": [
     {
-      "label": "Avvia UERANSIM",
-      "dependsOn": [
-        "network",
-        "gnb"
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "gnb",
-      "type": "shell",
+      "label": "Start gNB",
       "command": "./build/nr-gnb -c config/gnb.yaml",
-      "options": {
-        "cwd": "/home/leonardo/UERANSIM"
-      },
-      "isBackground": true,
-      "hide": true,
-      "problemMatcher": [],
-      "presentation": {
-        "panel": "new"
-      }
+      "type": "shell"
     },
     {
-      "label": "Avvia UE1",
-      "type": "shell",
+      "label": "Start UE1",
       "command": "sudo ./build/nr-ue -c config/ue-1.yaml",
-      "options": {
-        "cwd": "/home/leonardo/UERANSIM"
-      },
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": {
-        "panel": "new"
-      }
+      "type": "shell"
     },
     {
-      "label": "Avvia UE2",
-      "type": "shell",
+      "label": "Start UE2",
       "command": "sudo ./build/nr-ue -c config/ue-2.yaml",
-      "options": {
-        "cwd": "/home/leonardo/UERANSIM"
-      },
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": {
-        "panel": "new"
-      }
+      "type": "shell"
     },
     {
-      "label": "Avvia UE10",
-      "type": "shell",
+      "label": "Start UE10",
       "command": "sudo ./build/nr-ue -c config/ue-10.yaml",
-      "options": {
-        "cwd": "/home/leonardo/UERANSIM"
-      },
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": {
-        "panel": "new"
-      }
-    },
-    {
-      "label": "network",
-      "type": "shell",
-      "command": "ifconfig -a; exec bash",
-      "options": {
-        "cwd": "/home/leonardo/UERANSIM"
-      },
-      "isBackground": true,
-      "hide": true,
-      "problemMatcher": [],
-      "presentation": {
-        "panel": "new"
-      }
+      "type": "shell"
     }
   ]
 }
