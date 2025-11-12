@@ -24,8 +24,8 @@ ue_re = re.compile(r"UEs per batch\s*:\s*(\d+)")
 
 plt.figure(figsize=(10,6))
 ue_batch = None
-all_averages = []   # dati per il boxplot
-labels = []         # etichette
+all_averages = []
+labels = []
 
 for f in files:
     with open(f, "r") as fh:
@@ -86,7 +86,7 @@ plt.show()
 if all_averages:
     plt.figure(figsize=(8,6))
     box = plt.boxplot(all_averages, patch_artist=True, tick_labels=labels)
-    cmap = plt.cm.tab10
+    cmap = plt.cm.tab10 # type: ignore
     for i, patch in enumerate(box['boxes']):
         patch.set_facecolor(cmap(i % 10))
         patch.set_alpha(0.8)

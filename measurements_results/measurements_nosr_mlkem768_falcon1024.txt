@@ -1,0 +1,217 @@
+
+-----------------
+total UEs measured:  100
+min:                 360 ms
+max:                 1740 ms
+avg:                 1446.29 ms
+median:              1558.00 ms
+95th percentile:     1696.25 ms
+99th percentile:     1715.25 ms
+
+Test parameters:
+  UEs per batch : 1
+  Iterations    : 100
+  Timeout (s)   : 10
+  Delay (s)     : 1
+  ALG_TYPE      : mlkem768
+  SIG_TYPE      : falcon1024
+Iteration 1:
+  1010000000001: 360 ms
+Iteration 2:
+  1010000000002: 466 ms
+Iteration 3:
+  1010000000003: 500 ms
+Iteration 4:
+  1010000000004: 540 ms
+Iteration 5:
+  1010000000005: 623 ms
+Iteration 6:
+  1010000000006: 654 ms
+Iteration 7:
+  1010000000007: 728 ms
+Iteration 8:
+  1010000000008: 794 ms
+Iteration 9:
+  1010000000009: 861 ms
+Iteration 10:
+  1010000000010: 925 ms
+Iteration 11:
+  1010000000011: 974 ms
+Iteration 12:
+  1010000000012: 1051 ms
+Iteration 13:
+  1010000000013: 1099 ms
+Iteration 14:
+  1010000000014: 1120 ms
+Iteration 15:
+  1010000000015: 1234 ms
+Iteration 16:
+  1010000000016: 1261 ms
+Iteration 17:
+  1010000000017: 1359 ms
+Iteration 18:
+  1010000000018: 1342 ms
+Iteration 19:
+  1010000000019: 1372 ms
+Iteration 20:
+  1010000000020: 1383 ms
+Iteration 21:
+  1010000000021: 1418 ms
+Iteration 22:
+  1010000000022: 1405 ms
+Iteration 23:
+  1010000000023: 1441 ms
+Iteration 24:
+  1010000000024: 1419 ms
+Iteration 25:
+  1010000000025: 1455 ms
+Iteration 26:
+  1010000000026: 1466 ms
+Iteration 27:
+  1010000000027: 1463 ms
+Iteration 28:
+  1010000000028: 1470 ms
+Iteration 29:
+  1010000000029: 1485 ms
+Iteration 30:
+  1010000000030: 1499 ms
+Iteration 31:
+  1010000000031: 1492 ms
+Iteration 32:
+  1010000000032: 1477 ms
+Iteration 33:
+  1010000000033: 1501 ms
+Iteration 34:
+  1010000000034: 1500 ms
+Iteration 35:
+  1010000000035: 1478 ms
+Iteration 36:
+  1010000000036: 1509 ms
+Iteration 37:
+  1010000000037: 1501 ms
+Iteration 38:
+  1010000000038: 1528 ms
+Iteration 39:
+  1010000000039: 1545 ms
+Iteration 40:
+  1010000000040: 1530 ms
+Iteration 41:
+  1010000000041: 1533 ms
+Iteration 42:
+  1010000000042: 1515 ms
+Iteration 43:
+  1010000000043: 1591 ms
+Iteration 44:
+  1010000000044: 1592 ms
+Iteration 45:
+  1010000000045: 1549 ms
+Iteration 46:
+  1010000000046: 1538 ms
+Iteration 47:
+  1010000000047: 1544 ms
+Iteration 48:
+  1010000000048: 1614 ms
+Iteration 49:
+  1010000000049: 1612 ms
+Iteration 50:
+  1010000000050: 1599 ms
+Iteration 51:
+  1010000000051: 1624 ms
+Iteration 52:
+  1010000000052: 1537 ms
+Iteration 53:
+  1010000000053: 1554 ms
+Iteration 54:
+  1010000000054: 1558 ms
+Iteration 55:
+  1010000000055: 1561 ms
+Iteration 56:
+  1010000000056: 1552 ms
+Iteration 57:
+  1010000000057: 1550 ms
+Iteration 58:
+  1010000000058: 1576 ms
+Iteration 59:
+  1010000000059: 1558 ms
+Iteration 60:
+  1010000000060: 1670 ms
+Iteration 61:
+  1010000000061: 1565 ms
+Iteration 62:
+  1010000000062: 1583 ms
+Iteration 63:
+  1010000000063: 1643 ms
+Iteration 64:
+  1010000000064: 1607 ms
+Iteration 65:
+  1010000000065: 1674 ms
+Iteration 66:
+  1010000000066: 1596 ms
+Iteration 67:
+  1010000000067: 1573 ms
+Iteration 68:
+  1010000000068: 1595 ms
+Iteration 69:
+  1010000000069: 1591 ms
+Iteration 70:
+  1010000000070: 1574 ms
+Iteration 71:
+  1010000000071: 1594 ms
+Iteration 72:
+  1010000000072: 1577 ms
+Iteration 73:
+  1010000000073: 1613 ms
+Iteration 74:
+  1010000000074: 1740 ms
+Iteration 75:
+  1010000000075: 1620 ms
+Iteration 76:
+  1010000000076: 1579 ms
+Iteration 77:
+  1010000000077: 1711 ms
+Iteration 78:
+  1010000000078: 1611 ms
+Iteration 79:
+  1010000000079: 1583 ms
+Iteration 80:
+  1010000000080: 1606 ms
+Iteration 81:
+  1010000000081: 1598 ms
+Iteration 82:
+  1010000000082: 1705 ms
+Iteration 83:
+  1010000000083: 1621 ms
+Iteration 84:
+  1010000000084: 1715 ms
+Iteration 85:
+  1010000000085: 1597 ms
+Iteration 86:
+  1010000000086: 1696 ms
+Iteration 87:
+  1010000000087: 1589 ms
+Iteration 88:
+  1010000000088: 1630 ms
+Iteration 89:
+  1010000000089: 1690 ms
+Iteration 90:
+  1010000000090: 1613 ms
+Iteration 91:
+  1010000000091: 1599 ms
+Iteration 92:
+  1010000000092: 1622 ms
+Iteration 93:
+  1010000000093: 1625 ms
+Iteration 94:
+  1010000000094: 1692 ms
+Iteration 95:
+  1010000000095: 1626 ms
+Iteration 96:
+  1010000000096: 1588 ms
+Iteration 97:
+  1010000000097: 1628 ms
+Iteration 98:
+  1010000000098: 1591 ms
+Iteration 99:
+  1010000000099: 1701 ms
+Iteration 100:
+  1010000000100: 1613 ms

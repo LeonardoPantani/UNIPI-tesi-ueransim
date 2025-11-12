@@ -1,0 +1,218 @@
+
+-----------------
+total UEs measured:  83
+min:                 4277 ms
+max:                 6404 ms
+avg:                 5488.02 ms
+median:              5618.00 ms
+95th percentile:     6236.50 ms
+99th percentile:     6347.42 ms
+[!] warning: 17 UEs could not connect within the timeout
+
+Test parameters:
+  UEs per batch : 1
+  Iterations    : 100
+  Timeout (s)   : 10
+  Delay (s)     : 1
+  ALG_TYPE      : mlkem512
+  SIG_TYPE      : sphincssha2128ssimple
+Iteration 1:
+  1010000000001: 4277 ms
+Iteration 2:
+  1010000000002: 4437 ms
+Iteration 3:
+  1010000000003: 4694 ms
+Iteration 4:
+  1010000000004: 4495 ms
+Iteration 5:
+  1010000000005: 4549 ms
+Iteration 6:
+  1010000000006: 4999 ms
+Iteration 7:
+  1010000000007: 5054 ms
+Iteration 8:
+  1010000000008: 4450 ms
+Iteration 9:
+  1010000000009: 4369 ms
+Iteration 10:
+  1010000000010: 4395 ms
+Iteration 11:
+  1010000000011: 5021 ms
+Iteration 12:
+  1010000000012: 5407 ms
+Iteration 13:
+  1010000000013: 5083 ms
+Iteration 14:
+  1010000000014: 4616 ms
+Iteration 15:
+  1010000000015: 4800 ms
+Iteration 16:
+  1010000000016: 5405 ms
+Iteration 17:
+  1010000000017: 5588 ms
+Iteration 18:
+  1010000000018: 4944 ms
+Iteration 19:
+  1010000000019: 4748 ms
+Iteration 20:
+  1010000000020: 5369 ms
+Iteration 21:
+  1010000000021: 5591 ms
+Iteration 22:
+  1010000000022: 5379 ms
+Iteration 23:
+  1010000000023: 5416 ms
+Iteration 24:
+  1010000000024: 4892 ms
+Iteration 25:
+  1010000000025: 5367 ms
+Iteration 26:
+  1010000000026: 5533 ms
+Iteration 27:
+  1010000000027: 5194 ms
+Iteration 28:
+  1010000000028: 5436 ms
+Iteration 29:
+  1010000000029: 5618 ms
+Iteration 30:
+  1010000000030: 4859 ms
+Iteration 31:
+  1010000000031: 5665 ms
+Iteration 32:
+  1010000000032: 5614 ms
+Iteration 33:
+  1010000000033: 5209 ms
+Iteration 34:
+  1010000000034: 5688 ms
+Iteration 35:
+  1010000000035: 5652 ms
+Iteration 36:
+  1010000000036: 6033 ms
+Iteration 37:
+  1010000000037: 5593 ms
+Iteration 38:
+  1010000000038: 5686 ms
+Iteration 39:
+  1010000000039: 5761 ms
+Iteration 40:
+  1010000000040: 5669 ms
+Iteration 41:
+  1010000000041: 5218 ms
+Iteration 42:
+  1010000000042: 5885 ms
+Iteration 43:
+  1010000000043: 5697 ms
+Iteration 44:
+  1010000000044: 5987 ms
+Iteration 45:
+  1010000000045: 6245 ms
+Iteration 46:
+  1010000000046: 5950 ms
+Iteration 47:
+  1010000000047: 5426 ms
+Iteration 48:
+  1010000000048: 4962 ms
+Iteration 49:
+  1010000000049: 5974 ms
+Iteration 50:
+  1010000000050: 6253 ms
+Iteration 51:
+  1010000000051: 5791 ms
+Iteration 52:
+  1010000000052: 5804 ms
+Iteration 53:
+  1010000000053: 6010 ms
+Iteration 54:
+  1010000000054: 6404 ms
+Iteration 55:
+  1010000000055: 4965 ms
+Iteration 56:
+  1010000000056: 5773 ms
+Iteration 57:
+  1010000000057: 5866 ms
+Iteration 58:
+  1010000000058: 5766 ms
+Iteration 59:
+  1010000000059: 5140 ms
+Iteration 60:
+  1010000000060: 5770 ms
+Iteration 61:
+  1010000000061: 5998 ms
+Iteration 62:
+  1010000000062: 5989 ms
+Iteration 63:
+  1010000000063: 6160 ms
+Iteration 64:
+  1010000000064: 5002 ms
+Iteration 65:
+  1010000000065: 6029 ms
+Iteration 66:
+  1010000000066: 4980 ms
+Iteration 67:
+  1010000000067: 5981 ms
+Iteration 68:
+  1010000000068: 6253 ms
+Iteration 69:
+  1010000000069: 6008 ms
+Iteration 70:
+  1010000000070: 4989 ms
+Iteration 71:
+  1010000000071: 5961 ms
+Iteration 72:
+  1010000000072: 6335 ms
+Iteration 73:
+  1010000000073: 6001 ms
+Iteration 74:
+  1010000000074: 5993 ms
+Iteration 75:
+  1010000000075: 5017 ms
+Iteration 76:
+  1010000000076: 5974 ms
+Iteration 77:
+  1010000000077: 6123 ms
+Iteration 78:
+  1010000000078: 6088 ms
+Iteration 79:
+  1010000000079: 5917 ms
+Iteration 80:
+  1010000000080: 5748 ms
+Iteration 81:
+  1010000000081: 5749 ms
+Iteration 82:
+  1010000000082: 6011 ms
+Iteration 83:
+  1010000000083: 5759 ms
+Iteration 84:
+  null
+Iteration 85:
+  null
+Iteration 86:
+  null
+Iteration 87:
+  null
+Iteration 88:
+  null
+Iteration 89:
+  null
+Iteration 90:
+  null
+Iteration 91:
+  null
+Iteration 92:
+  null
+Iteration 93:
+  null
+Iteration 94:
+  null
+Iteration 95:
+  null
+Iteration 96:
+  null
+Iteration 97:
+  null
+Iteration 98:
+  null
+Iteration 99:
+  null
+Iteration 100:
+  null
