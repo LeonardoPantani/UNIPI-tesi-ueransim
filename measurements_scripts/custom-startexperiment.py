@@ -7,69 +7,48 @@ import signal
 import select
 import os
 import sys
+import argparse
 from datetime import datetime
 from tqdm import tqdm
 
 # edit this
-CMD_BASE = ["sudo", "-n", "./build/nr-ue", "-i", "imsi-001010000000001", "-c", "config/ue-1.yaml"]
-N_UE = 1 # single: 1, closed_loop: 10
-ITERATIONS = 100 # single: 100, closed_loop: 100
-TIMEOUT = 15 # single: 5, closed_loop: 10
-DELAY = 1 # single: 1, closed_loop: 3
+ITERATIONS = 100
+TIMEOUT = 15
+DELAY = 1
 # stop editing
 
-# --- check parameters and preparation
-if len(sys.argv) < 4:
-    print(f"Usage: {sys.argv[0]} <nosr|sr> <ALG_TYPE> <SIG_TYPE>")
-    sys.exit(1)
-
-MODE = sys.argv[1]
-if MODE != "nosr" and MODE != "sr":
-    print(f"Usage: {sys.argv[0]} <nosr|sr> <ALG_TYPE> <SIG_TYPE>")
-    sys.exit(1)
-    
-ALG_TYPE = sys.argv[2]
-SIG_TYPE = sys.argv[3]
-OUTPUT_FILE = f"regtimes_{MODE}_{ALG_TYPE}_{SIG_TYPE}.txt"
-
 TS_REGEX = re.compile(r"\[(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3})\]")
-IMSI_REGEX = re.compile(r"\[(\d{15})\|nas\]")
 SCRIPT_START_TIME = time.time()
 
-# ---- defining useful functions
+results = []
+
+
 def _parse_ts_ms(line: str):
     m = TS_REGEX.search(line)
     if not m:
         return None
-    y, mo, d = map(int, m.group(1,2,3))
-    h, mi, s, ms = map(int, m.group(4,5,6,7))
+    y, mo, d = map(int, m.group(1, 2, 3))
+    h, mi, s, ms = map(int, m.group(4, 5, 6, 7))
     dt = datetime(y, mo, d, h, mi, s, ms * 1000)
     return int(dt.timestamp() * 1000)
 
-def _get_starting_imsi_from_cmd(cmd_base):
-    for i, arg in enumerate(cmd_base):
-        if arg == "-i" and i + 1 < len(cmd_base):
-            imsi_str = cmd_base[i + 1]
-            return int(imsi_str.replace("imsi-", ""))
-    raise ValueError("-i parameter not found in CMD_BASE")
 
-INITIAL_IMSI = _get_starting_imsi_from_cmd(CMD_BASE)
-results = []
-
-# --- running one UE
-def run_once(iteration):
-    imsi = f"imsi-{INITIAL_IMSI + iteration - 1:015d}"
-    cmd = CMD_BASE.copy()
-    cmd[CMD_BASE.index("-i") + 1] = imsi
+def _run_once(iteration, timeout):
+    imsi = f"imsi-{1010000000001 + iteration - 1:015d}"
 
     proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1, preexec_fn=os.setsid, close_fds=True
+        ["sudo", "-n", "./build/nr-ue", "-i", imsi, "-c", "config/ue-1.yaml"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        preexec_fn=os.setsid,
+        close_fds=True,
     )
 
     start_ms = end_ms = None
     log_lines = []
-    deadline = time.time() + TIMEOUT
+    deadline = time.time() + timeout
 
     try:
         while time.time() < deadline:
@@ -91,24 +70,27 @@ def run_once(iteration):
 
             elif "Initial Registration is successful" in line:
                 end_ms = _parse_ts_ms(line)
-                if start_ms is not None and end_ms is not None:
-                    latency = end_ms - start_ms
-                else:
+                if start_ms is None or end_ms is None:
                     continue
+
+                latency = end_ms - start_ms
                 time.sleep(0.75)
+
                 for attempt in range(1, 4):
                     try:
                         subprocess.run(
                             ["./build/nr-cli", imsi, "--exec", "deregister switch-off"],
-                            stdout=subprocess.DEVNULL, stderr=sys.stderr, timeout=1
+                            stdout=subprocess.DEVNULL,
+                            stderr=sys.stderr,
+                            timeout=1,
                         )
                         break
                     except subprocess.TimeoutExpired:
                         if attempt >= 3:
                             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+
                 return {imsi: latency}
 
-        #  registration failed or timeout
         print(f"[!] UE {imsi} did not register in time")
         with open(f"regtimes_error_{iteration}.txt", "w", encoding="utf-8") as f:
             f.writelines(log_lines)
@@ -123,61 +105,66 @@ def run_once(iteration):
         return None
 
 
-
-def build_summary(all_results):
+def _build_summary(all_results, iterations, timeout, delay, alg, sig):
     flat = []
     for batch in all_results:
         if isinstance(batch, dict):
             flat.extend(batch.values())
-        elif batch is None:
+        else:
             flat.append(None)
 
-    lines = ["-----------------"]
+    lines = ["-" * 25]
 
-    valid_values = [v for v in flat if isinstance(v, (int, float)) and v is not None]
-    (minutes, seconds) = elapsed_time()
+    valid = [v for v in flat if isinstance(v, (int, float))]
+    minutes, seconds = divmod(int(time.time() - SCRIPT_START_TIME), 60)
 
-    if valid_values:
-        flat_sorted = sorted(valid_values)
-        n = len(flat_sorted)
+    if valid:
+        valid.sort()
+        n = len(valid)
 
         def percentile(p):
             k = (n - 1) * (p / 100)
             f = int(k)
             c = min(f + 1, n - 1)
-            return flat_sorted[f] + (flat_sorted[c] - flat_sorted[f]) * (k - f)
+            return valid[f] + (valid[c] - valid[f]) * (k - f)
 
         lines.append(f"total UEs measured:  {n}")
-        lines.append(f"Elapsed time:        {minutes} min(s) {seconds} sec(s)")
-        lines.append(f"min:                 {flat_sorted[0]} ms")
-        lines.append(f"max:                 {flat_sorted[-1]} ms")
-        lines.append(f"avg:                 {statistics.mean(flat_sorted):.2f} ms")
-        lines.append(f"median:              {statistics.median(flat_sorted):.2f} ms")
+        lines.append(f"elapsed time:        {minutes} min(s) {seconds} sec(s)")
+        lines.append(f"min:                 {valid[0]} ms")
+        lines.append(f"max:                 {valid[-1]} ms")
+        lines.append(f"avg:                 {statistics.mean(valid):.2f} ms")
+        lines.append(f"median:              {statistics.median(valid):.2f} ms")
         lines.append(f"95th percentile:     {percentile(95):.2f} ms")
         lines.append(f"99th percentile:     {percentile(99):.2f} ms")
     else:
         lines.append("no valid numeric results")
 
-    null_count = len(flat) - len(valid_values)
+    null_count = len(flat) - len(valid)
     if null_count > 0:
-        lines.append(f"[!] warning: {null_count} UEs could not connect within the timeout")
+        lines.append(
+            f"[!] warning: {null_count} UEs could not connect within the timeout"
+        )
 
     lines.append("\nTest parameters:")
-    lines.append(f"  UEs per batch : {N_UE}")
-    lines.append(f"  Iterations    : {ITERATIONS}")
-    lines.append(f"  Timeout (s)   : {TIMEOUT}")
-    lines.append(f"  Delay (s)     : {DELAY}")
-    lines.append(f"  ALG_TYPE      : {ALG_TYPE}")
-    lines.append(f"  SIG_TYPE      : {SIG_TYPE}")
+    lines.append(f"  UEs per batch : 1")
+    lines.append(f"  Iterations    : {iterations}")
+    lines.append(f"  Timeout (s)   : {timeout}")
+    lines.append(f"  Delay (s)     : {delay}")
+    lines.append(f"  ALG_TYPE      : {alg}")
+    lines.append(f"  SIG_TYPE      : {sig}")
 
     return "\n".join(lines)
 
 
-def save_results():
-    summary = build_summary(results)
+def _save_results(output_file, iterations, timeout, delay, alg, sig, no_results):
+    summary = _build_summary(results, iterations, timeout, delay, alg, sig)
     print("\n" + summary)
+
+    if no_results:
+        return
+
     try:
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write("\n" + summary + "\n")
             for i, batch in enumerate(results, 1):
                 f.write(f"Iteration {i}:\n")
@@ -191,26 +178,47 @@ def save_results():
                     else:
                         f.write(f"  {imsi}: {val} ms\n")
     except OSError as e:
-        print(f"[!] unable to write {OUTPUT_FILE}: {e}")
+        print(f"[!] unable to write {output_file}: {e}")
 
-def elapsed_time():
-    return (divmod(int(time.time() - SCRIPT_START_TIME), 60))
-
-def sigint_handler(sig, frame):
-    print("\n> saving results")
-    save_results()
-    sys.exit(0)
 
 def main():
-    signal.signal(signal.SIGINT, sigint_handler)
+    parser = argparse.ArgumentParser(
+        description="Runs repeated UE registrations and measures latency."
+    )
+
+    parser.add_argument("MODE", choices=["nosr", "sr"])
+    parser.add_argument("ALG_TYPE", help="Algorithm Type")
+    parser.add_argument("SIG_TYPE", help="Signature Type")
+
+    parser.add_argument(
+        "--no-results", action="store_true", help="do not write the output results file"
+    )
+
+    args = parser.parse_args()
+
+    mode = args.MODE
+    alg = args.ALG_TYPE
+    sig = args.SIG_TYPE
+    no_results = args.no_results
+
+    output_file = f"regtimes_{mode}_{alg}_{sig}.txt"
+
+    def handler(sig_, frame):
+        print("\n> saving results")
+        _save_results(output_file, ITERATIONS, TIMEOUT, DELAY, alg, sig, no_results)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, handler)
+
     with tqdm(total=ITERATIONS, desc="testing 1 UE at a time") as pbar:
         for i in range(1, ITERATIONS + 1):
-            batch_deltas = run_once(i)
+            batch_deltas = _run_once(i, TIMEOUT)
             results.append(batch_deltas)
             pbar.update(1)
             if i < ITERATIONS:
                 time.sleep(DELAY)
-    save_results()
+
+    _save_results(output_file, ITERATIONS, TIMEOUT, DELAY, alg, sig, no_results)
 
 
 if __name__ == "__main__":
