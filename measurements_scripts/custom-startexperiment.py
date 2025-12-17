@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
 import re
+import threading
 import time
 import statistics
 import signal
@@ -38,9 +39,7 @@ def _parse_ts_ms(line: str):
     return int(dt.timestamp() * 1000)
 
 
-def _run_once(iteration, timeout):
-    imsi = f"imsi-{1010000000001 + iteration - 1:015d}"
-
+def _run_single_imsi(imsi, timeout, error_suffix):
     proc = subprocess.Popen(
         ["sudo", "-n", NR_UE_BIN, "-i", imsi, "-c", UE_CONFIG],
         stdout=subprocess.PIPE,
@@ -51,144 +50,46 @@ def _run_once(iteration, timeout):
         close_fds=True,
     )
 
-    start_ms = end_ms = None
+    assert proc.stdout is not None
+    stdout = proc.stdout
+
+    start_ms = None
+    end_ms = None
+    deadline = None
     log_lines = []
-    deadline = time.time() + timeout
 
     try:
-        while time.time() < deadline:
-            r, _, _ = select.select([proc.stdout], [], [], 0.2)
-            if not r:
-                continue
-
-            assert proc.stdout is not None
-            line = proc.stdout.readline()
-            if not line:
-                if proc.poll() is not None:
-                    break
-                continue
-
-            log_lines.append(line)
-
-            if "Sending Initial Registration" in line:
-                start_ms = _parse_ts_ms(line)
-
-            elif "Initial Registration is successful" in line:
-                end_ms = _parse_ts_ms(line)
-                if start_ms is None or end_ms is None:
-                    continue
-
-                latency = end_ms - start_ms
-                time.sleep(0.75)
-
-                for attempt in range(1, 4):
-                    try:
-                        subprocess.run(
-                            [NR_CLI_BIN, imsi, "--exec", "deregister switch-off"],
-                            stdout=subprocess.DEVNULL,
-                            stderr=sys.stderr,
-                            timeout=1,
-                        )
-                        break
-                    except subprocess.TimeoutExpired:
-                        if attempt >= 3:
-                            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-
-                return {imsi: latency}
-
-        print(f"[!] UE {imsi} did not register in time")
-        with open(f"regtimes_error_{iteration}.txt", "w", encoding="utf-8") as f:
-            f.writelines(log_lines)
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        return None
-
-    except Exception as e:
-        print(f"[!] Error in iteration {iteration}: {e}")
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        with open(f"regtimes_error_{iteration}.txt", "w", encoding="utf-8") as f:
-            f.writelines(log_lines)
-        return None
-
-
-def _run_batch(iteration, n_ue, timeout):
-    # each iteration uses a disjoint IMSI block of size n_ue
-    base_imsi = 1010000000001 + (iteration - 1) * n_ue
-
-    procs = {}
-    state = {}
-    deadline = time.time() + timeout
-
-    for i in range(n_ue):
-        imsi = f"imsi-{base_imsi + i:015d}"
-        proc = subprocess.Popen(
-            ["sudo", "-n", NR_UE_BIN, "-i", imsi, "-c", UE_CONFIG],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            preexec_fn=os.setsid,
-            close_fds=True,
-        )
-        procs[imsi] = proc
-        state[imsi] = {
-            "start": None,
-            "end": None,
-            "log": [],
-        }
-        print("Started UE", imsi)
-
-    try:
-        while time.time() < deadline:
-            done = 0
-
-            for imsi, proc in procs.items():
-                if state[imsi]["end"] is not None:
-                    continue
-
-                r, _, _ = select.select([proc.stdout], [], [], 0)
-                if not r:
-                    continue
-
-                line = proc.stdout.readline()
-                if not line:
-                    continue
-
-                state[imsi]["log"].append(line)
-
-                if "Sending Initial Registration" in line:
-                    state[imsi]["start"] = _parse_ts_ms(line)
-
-                elif "Initial Registration is successful" in line:
-                    state[imsi]["end"] = _parse_ts_ms(line)
-                    done += 1
-
-            done = sum(1 for s in state.values() if s["end"] is not None)
-            if done == n_ue:
+        while True:
+            if deadline is not None and time.time() > deadline:
                 break
 
-            time.sleep(0.05)
-        
-        timed_out = [
-            imsi for imsi, s in state.items()
-            if s["end"] is None
-        ]
+            r, _, _ = select.select([stdout], [], [], 0.2)
 
-        if timed_out:
-            for imsi in timed_out:
-                fname = f"regtimes_error_iter{iteration}_{imsi}.txt"
-                with open(fname, "w", encoding="utf-8") as f:
-                    f.writelines(state[imsi]["log"])
+            if r:
+                line = stdout.readline()
+                if line:
+                    log_lines.append(line)
 
-        results = {}
-        for imsi, s in state.items():
-            if s["start"] is not None and s["end"] is not None:
-                results[imsi] = s["end"] - s["start"]
-            else:
-                results[imsi] = None
+                    if "Sending Initial Registration" in line:
+                        start_ms = _parse_ts_ms(line)
+                        if start_ms is not None:
+                            deadline = time.time() + timeout
 
-        time.sleep(0.75)
+                    elif "Initial Registration is successful" in line:
+                        end_ms = _parse_ts_ms(line)
+                        break
 
-        for imsi, proc in procs.items():
+            if proc.poll() is not None:
+                for line in stdout:
+                    log_lines.append(line)
+                    if "Initial Registration is successful" in line:
+                        end_ms = _parse_ts_ms(line)
+                break
+
+        if start_ms is not None and end_ms is not None:
+            latency = end_ms - start_ms
+
+            time.sleep(0.75)
             try:
                 subprocess.run(
                     [NR_CLI_BIN, imsi, "--exec", "deregister switch-off"],
@@ -198,18 +99,51 @@ def _run_batch(iteration, n_ue, timeout):
                 )
             except subprocess.TimeoutExpired:
                 pass
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
 
-        return results
-
-    except Exception as e:
-        print(f"[!] Error in batch iteration {iteration}: {e}")
-        for imsi, proc in procs.items():
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-            fname = f"regtimes_error_iter{iteration}_{imsi}.txt"
-            with open(fname, "w", encoding="utf-8") as f:
-                f.writelines(state[imsi]["log"])
-        return None 
+            return latency
+
+        with open(f"regtimes_error_{error_suffix}.txt", "w", encoding="utf-8") as f:
+            f.writelines(log_lines)
+
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        return None
+
+    except Exception:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        with open(f"regtimes_error_{error_suffix}.txt", "w", encoding="utf-8") as f:
+            f.writelines(log_lines)
+        return None
+
+
+def _run_once(iteration, timeout):
+    imsi = f"imsi-{1010000000001 + iteration - 1:015d}"
+    latency = _run_single_imsi(imsi, timeout, f"{iteration}")
+
+    if latency is None:
+        return None
+
+    return {imsi: latency}
+
+
+def _run_batch(iteration, n_ue, timeout):
+    base_imsi = 1010000000001 + (iteration - 1) * n_ue
+    results = {}
+    threads = {}
+
+    def worker(imsi, key):
+        results[key] = _run_single_imsi(imsi, timeout, f"iter{iteration}_{imsi}")
+
+    for i in range(n_ue):
+        imsi = f"imsi-{base_imsi + i:015d}"
+        t = threading.Thread(target=worker, args=(imsi, imsi))
+        threads[imsi] = t
+        t.start()
+
+    for t in threads.values():
+        t.join()
+
+    return results
 
 
 def _build_summary(all_results, iterations, timeout, delay, alg, sig, batch_size):
