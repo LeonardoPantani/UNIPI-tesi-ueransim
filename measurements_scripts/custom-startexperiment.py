@@ -15,8 +15,13 @@ from tqdm import tqdm
 ITERATIONS = 100
 TIMEOUT = 15
 DELAY = 1
+N_UE = 10
 # stop editing
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+NR_UE_BIN = os.path.join(SCRIPT_DIR, "../build", "nr-ue")
+NR_CLI_BIN = os.path.join(SCRIPT_DIR, "../build", "nr-cli")
+UE_CONFIG = os.path.join(SCRIPT_DIR, "../config", "ue-1.yaml")
 TS_REGEX = re.compile(r"\[(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3})\]")
 SCRIPT_START_TIME = time.time()
 
@@ -37,7 +42,7 @@ def _run_once(iteration, timeout):
     imsi = f"imsi-{1010000000001 + iteration - 1:015d}"
 
     proc = subprocess.Popen(
-        ["sudo", "-n", "./build/nr-ue", "-i", imsi, "-c", "config/ue-1.yaml"],
+        ["sudo", "-n", NR_UE_BIN, "-i", imsi, "-c", UE_CONFIG],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -79,7 +84,7 @@ def _run_once(iteration, timeout):
                 for attempt in range(1, 4):
                     try:
                         subprocess.run(
-                            ["./build/nr-cli", imsi, "--exec", "deregister switch-off"],
+                            [NR_CLI_BIN, imsi, "--exec", "deregister switch-off"],
                             stdout=subprocess.DEVNULL,
                             stderr=sys.stderr,
                             timeout=1,
@@ -105,7 +110,109 @@ def _run_once(iteration, timeout):
         return None
 
 
-def _build_summary(all_results, iterations, timeout, delay, alg, sig):
+def _run_batch(iteration, n_ue, timeout):
+    # each iteration uses a disjoint IMSI block of size n_ue
+    base_imsi = 1010000000001 + (iteration - 1) * n_ue
+
+    procs = {}
+    state = {}
+    deadline = time.time() + timeout
+
+    for i in range(n_ue):
+        imsi = f"imsi-{base_imsi + i:015d}"
+        proc = subprocess.Popen(
+            ["sudo", "-n", NR_UE_BIN, "-i", imsi, "-c", UE_CONFIG],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            preexec_fn=os.setsid,
+            close_fds=True,
+        )
+        procs[imsi] = proc
+        state[imsi] = {
+            "start": None,
+            "end": None,
+            "log": [],
+        }
+        print("Started UE", imsi)
+
+    try:
+        while time.time() < deadline:
+            done = 0
+
+            for imsi, proc in procs.items():
+                if state[imsi]["end"] is not None:
+                    continue
+
+                r, _, _ = select.select([proc.stdout], [], [], 0)
+                if not r:
+                    continue
+
+                line = proc.stdout.readline()
+                if not line:
+                    continue
+
+                state[imsi]["log"].append(line)
+
+                if "Sending Initial Registration" in line:
+                    state[imsi]["start"] = _parse_ts_ms(line)
+
+                elif "Initial Registration is successful" in line:
+                    state[imsi]["end"] = _parse_ts_ms(line)
+                    done += 1
+
+            done = sum(1 for s in state.values() if s["end"] is not None)
+            if done == n_ue:
+                break
+
+            time.sleep(0.05)
+        
+        timed_out = [
+            imsi for imsi, s in state.items()
+            if s["end"] is None
+        ]
+
+        if timed_out:
+            for imsi in timed_out:
+                fname = f"regtimes_error_iter{iteration}_{imsi}.txt"
+                with open(fname, "w", encoding="utf-8") as f:
+                    f.writelines(state[imsi]["log"])
+
+        results = {}
+        for imsi, s in state.items():
+            if s["start"] is not None and s["end"] is not None:
+                results[imsi] = s["end"] - s["start"]
+            else:
+                results[imsi] = None
+
+        time.sleep(0.75)
+
+        for imsi, proc in procs.items():
+            try:
+                subprocess.run(
+                    [NR_CLI_BIN, imsi, "--exec", "deregister switch-off"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=sys.stderr,
+                    timeout=1,
+                )
+            except subprocess.TimeoutExpired:
+                pass
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+
+        return results
+
+    except Exception as e:
+        print(f"[!] Error in batch iteration {iteration}: {e}")
+        for imsi, proc in procs.items():
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            fname = f"regtimes_error_iter{iteration}_{imsi}.txt"
+            with open(fname, "w", encoding="utf-8") as f:
+                f.writelines(state[imsi]["log"])
+        return None 
+
+
+def _build_summary(all_results, iterations, timeout, delay, alg, sig, batch_size):
     flat = []
     for batch in all_results:
         if isinstance(batch, dict):
@@ -146,7 +253,7 @@ def _build_summary(all_results, iterations, timeout, delay, alg, sig):
         )
 
     lines.append("\nTest parameters:")
-    lines.append(f"  UEs per batch : 1")
+    lines.append(f"  UEs per batch : {batch_size}")
     lines.append(f"  Iterations    : {iterations}")
     lines.append(f"  Timeout (s)   : {timeout}")
     lines.append(f"  Delay (s)     : {delay}")
@@ -156,8 +263,10 @@ def _build_summary(all_results, iterations, timeout, delay, alg, sig):
     return "\n".join(lines)
 
 
-def _save_results(output_file, iterations, timeout, delay, alg, sig, no_results):
-    summary = _build_summary(results, iterations, timeout, delay, alg, sig)
+def _save_results(
+    output_file, iterations, timeout, delay, alg, sig, batch_size, no_results
+):
+    summary = _build_summary(results, iterations, timeout, delay, alg, sig, batch_size)
     print("\n" + summary)
 
     if no_results:
@@ -189,7 +298,28 @@ def main():
     parser.add_argument("MODE", choices=["nosr", "sr"])
     parser.add_argument("ALG_TYPE", help="Algorithm Type")
     parser.add_argument("SIG_TYPE", help="Signature Type")
-
+    parser.add_argument(
+        "--batch",
+        nargs="?",
+        const=10,
+        type=int,
+        help="enable batch mode with optional number of UEs (default: 10)",
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        help="number of iterations (default: 100)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        help="seconds before considering a registration failed (default: 15)",
+    )
+    parser.add_argument(
+        "--delay",
+        type=int,
+        help="seconds between one iteration and another (default: 1)",
+    )
     parser.add_argument(
         "--no-results", action="store_true", help="do not write the output results file"
     )
@@ -200,25 +330,42 @@ def main():
     alg = args.ALG_TYPE
     sig = args.SIG_TYPE
     no_results = args.no_results
+    batch_size = args.batch if args.batch is not None else 1
+    use_batch = args.batch is not None
+    iterations = args.iterations if args.iterations is not None else ITERATIONS
+    timeout = args.timeout if args.timeout is not None else TIMEOUT
+    delay = args.delay if args.delay is not None else DELAY
 
     output_file = f"regtimes_{mode}_{alg}_{sig}.txt"
 
     def handler(sig_, frame):
         print("\n> saving results")
-        _save_results(output_file, ITERATIONS, TIMEOUT, DELAY, alg, sig, no_results)
+        _save_results(
+            output_file, iterations, timeout, delay, alg, sig, batch_size, no_results
+        )
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handler)
 
-    with tqdm(total=ITERATIONS, desc="testing 1 UE at a time") as pbar:
-        for i in range(1, ITERATIONS + 1):
-            batch_deltas = _run_once(i, TIMEOUT)
+    with tqdm(
+        total=iterations,
+        desc=f"testing {batch_size} UE(s) per iteration",
+    ) as pbar:
+        for i in range(1, iterations + 1):
+            if use_batch:
+                batch_deltas = _run_batch(i, batch_size, timeout)
+            else:
+                batch_deltas = _run_once(i, timeout)
+
             results.append(batch_deltas)
             pbar.update(1)
-            if i < ITERATIONS:
-                time.sleep(DELAY)
 
-    _save_results(output_file, ITERATIONS, TIMEOUT, DELAY, alg, sig, no_results)
+            if i < iterations:
+                time.sleep(delay)
+
+    _save_results(
+        output_file, iterations, timeout, delay, alg, sig, batch_size, no_results
+    )
 
 
 if __name__ == "__main__":
