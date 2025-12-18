@@ -16,7 +16,7 @@ from tqdm import tqdm
 ITERATIONS = 100
 TIMEOUT = 15
 DELAY = 1
-N_UE = 10
+N_UE = 1
 # stop editing
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +27,8 @@ TS_REGEX = re.compile(r"\[(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3
 SCRIPT_START_TIME = time.time()
 
 results = []
+active_pgroups = set()
+active_pgroups_lock = threading.Lock()
 
 
 def _parse_ts_ms(line: str):
@@ -49,6 +51,10 @@ def _run_single_imsi(imsi, timeout, error_suffix):
         preexec_fn=os.setsid,
         close_fds=True,
     )
+
+    pgid = os.getpgid(proc.pid)
+    with active_pgroups_lock:
+        active_pgroups.add(pgid)
 
     assert proc.stdout is not None
     stdout = proc.stdout
@@ -100,17 +106,35 @@ def _run_single_imsi(imsi, timeout, error_suffix):
             except subprocess.TimeoutExpired:
                 pass
 
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            try:
+                os.killpg(pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            finally:
+                with active_pgroups_lock:
+                    active_pgroups.discard(pgid)
             return latency
 
         with open(f"regtimes_error_{error_suffix}.txt", "w", encoding="utf-8") as f:
             f.writelines(log_lines)
 
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        finally:
+            with active_pgroups_lock:
+                active_pgroups.discard(pgid)
         return None
 
     except Exception:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        finally:
+            with active_pgroups_lock:
+                active_pgroups.discard(pgid)
         with open(f"regtimes_error_{error_suffix}.txt", "w", encoding="utf-8") as f:
             f.writelines(log_lines)
         return None
@@ -273,11 +297,20 @@ def main():
     output_file = f"regtimes_{mode}_{alg}_{sig}.txt"
 
     def handler(sig_, frame):
-        print("\n> saving results")
+        with active_pgroups_lock:
+            for pgid in list(active_pgroups):
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            active_pgroups.clear()
+
+        print("> saving results")
         _save_results(
             output_file, iterations, timeout, delay, alg, sig, batch_size, no_results
         )
-        sys.exit(0)
+
+        os._exit(0)
 
     signal.signal(signal.SIGINT, handler)
 
