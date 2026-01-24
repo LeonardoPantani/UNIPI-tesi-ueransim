@@ -155,12 +155,18 @@ def _run_batch(iteration, n_ue, timeout):
     results = {}
     threads = {}
 
-    def worker(imsi, key):
+    sync_barrier = threading.Barrier(n_ue)
+
+    def worker(imsi, key, barrier):
+        try:
+            barrier.wait(timeout=5)
+        except threading.BrokenBarrierError:
+            pass 
         results[key] = _run_single_imsi(imsi, timeout, f"iter{iteration}_{imsi}")
 
     for i in range(n_ue):
         imsi = f"imsi-{base_imsi + i:015d}"
-        t = threading.Thread(target=worker, args=(imsi, imsi))
+        t = threading.Thread(target=worker, args=(imsi, imsi, sync_barrier))
         threads[imsi] = t
         t.start()
 
@@ -259,12 +265,14 @@ def main():
     parser.add_argument(
         "--batch",
         nargs="?",
-        const=10,
+        const=20,
         type=int,
-        help="enable batch mode with optional number of UEs (default: 10)",
+        help="enable batch mode with optional number of UEs (default: 20)",
     )
     parser.add_argument(
         "--iterations",
+        nargs="?",
+        const=100,
         type=int,
         help="number of iterations (default: 100)",
     )
