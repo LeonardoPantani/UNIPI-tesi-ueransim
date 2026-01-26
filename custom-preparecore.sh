@@ -7,7 +7,7 @@ sleep 2
 sudo ./build/nr-ue -c config/ue-1.yaml &
 UE_PID=$!
 
-sleep 2
+sleep 5
 
 echo "--- Killing UE (PID: $UE_PID) ---"
 sudo kill $UE_PID
