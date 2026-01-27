@@ -25,6 +25,7 @@ NR_CLI_BIN = os.path.join(SCRIPT_DIR, "../build", "nr-cli")
 UE_CONFIG = os.path.join(SCRIPT_DIR, "../config", "ue-1.yaml")
 TS_REGEX = re.compile(r"\[(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3})\]")
 SCRIPT_START_TIME = time.time()
+SCRIPT_START_DT = datetime.now()
 
 results = []
 active_pgroups = set()
@@ -161,7 +162,7 @@ def _run_batch(iteration, n_ue, timeout):
         try:
             barrier.wait(timeout=5)
         except threading.BrokenBarrierError:
-            pass 
+            pass
         results[key] = _run_single_imsi(imsi, timeout, f"iter{iteration}_{imsi}")
 
     for i in range(n_ue):
@@ -176,7 +177,9 @@ def _run_batch(iteration, n_ue, timeout):
     return results
 
 
-def _build_summary(all_results, iterations, timeout, delay, alg, sig, batch_size):
+def _build_summary(
+    all_results, iterations, timeout, delay, alg, sig, batch_size, start_dt, end_dt
+):
     flat = []
     for batch in all_results:
         if isinstance(batch, dict):
@@ -216,6 +219,9 @@ def _build_summary(all_results, iterations, timeout, delay, alg, sig, batch_size
             f"[!] warning: {null_count} UEs could not connect within the timeout"
         )
 
+    lines.append(f"\nexperiment start: {start_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"experiment end:   {end_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
     lines.append("\nTest parameters:")
     lines.append(f"  UEs per batch : {batch_size}")
     lines.append(f"  Iterations    : {iterations}")
@@ -230,7 +236,18 @@ def _build_summary(all_results, iterations, timeout, delay, alg, sig, batch_size
 def _save_results(
     output_file, iterations, timeout, delay, alg, sig, batch_size, no_results
 ):
-    summary = _build_summary(results, iterations, timeout, delay, alg, sig, batch_size)
+    end_dt = datetime.now()
+    summary = _build_summary(
+        results,
+        iterations,
+        timeout,
+        delay,
+        alg,
+        sig,
+        batch_size,
+        SCRIPT_START_DT,
+        end_dt,
+    )
     print("\n" + summary)
 
     if no_results:
