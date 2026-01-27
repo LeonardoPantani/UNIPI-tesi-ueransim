@@ -162,6 +162,12 @@ def main():
             f"min={a['min']:.6f} {unit_label}  "
             f"max={a['max']:.6f} {unit_label}"
         )
+    
+    # final_line = ", ".join(
+    #     f"{agg[c]['mean']:.4f} ± {agg[c]['ci95_pm']:.3f}"
+    #     for c in nf_cols
+    # )
+    # print("\n"+final_line)
 
 if __name__ == "__main__":
     main()
