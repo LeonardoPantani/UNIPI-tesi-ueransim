@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.utils import resample
 from sklearn.linear_model import HuberRegressor
 
-# Omatch measurement lines like: "imsi-...: 123 ms"
+# Match lines "imsi-...: 123 ms"
 MEAS_RE = re.compile(r"^\s*imsi-[^:]+:\s*([0-9]+(?:\.[0-9]+)?)\s*ms\s*$", re.IGNORECASE)
 
 
@@ -22,11 +22,6 @@ def parse_measurements_ms(text: str) -> np.ndarray:
 
 
 def huber_location(x: np.ndarray) -> float:
-    """
-    Robust location estimate using HuberRegressor with intercept-only model:
-      y_i = mu + e_i
-    Returns mu.
-    """
     if x.size == 0:
         return float("nan")
 
@@ -44,7 +39,7 @@ def huber_location(x: np.ndarray) -> float:
 
 def bootstrap_ci95_huber(x: np.ndarray, n_boot: int = 5000, seed: int = 123) -> tuple[float, float, float]:
     """
-    Percentile bootstrap CI95 for Huber location.
+    Percentile bootstrap CI95 for Huber.
     Returns (stat, ci_low, ci_high).
     """
     if x.size == 0:
@@ -102,7 +97,7 @@ def main() -> int:
 
     if x_all.size == 0:
         print("ERROR: No measurement lines found. Expected lines like:", file=sys.stderr)
-        print("  imsi-001010000000001: 3058 ms", file=sys.stderr)
+        print("  imsi-001010000000001: 1234 ms", file=sys.stderr)
         return 3
 
     drop_first = max(0, int(args.drop_first))
