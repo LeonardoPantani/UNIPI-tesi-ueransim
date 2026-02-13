@@ -1,173 +1,121 @@
 #!/usr/bin/env python3
 import argparse
-import csv
-import math
 import sys
-from typing import List, Dict, Tuple
+from dataclasses import dataclass
 
-T_CRIT_95_DF9 = 2.262  # t_{0.975, df=9} for 95% CI with n=10 groups
+import numpy as np
+import pandas as pd
+from scipy import stats
 
-def is_idle_row(values: List[float], eps: float = 0.0) -> bool:
-    # Idle if ALL NF values are zero (or <= eps)
-    return all(abs(v) <= eps for v in values)
 
-def mean(xs: List[float]) -> float:
-    return sum(xs) / len(xs) if xs else float("nan")
+@dataclass(frozen=True)
+class Summary:
+    mean: float
+    ci95_half: float
 
-def sample_std(xs: List[float]) -> float:
-    n = len(xs)
-    if n < 2:
-        return 0.0
-    m = mean(xs)
-    return math.sqrt(sum((x - m) ** 2 for x in xs) / (n - 1))
 
-def ci95_halfwidth(xs: List[float]) -> float:
-    n = len(xs)
-    if n <= 1:
-        return 0.0
-    s = sample_std(xs)
-    return T_CRIT_95_DF9 * (s / math.sqrt(n))
+def load_csv(path: str) -> tuple[list[str], np.ndarray]:
+    df = pd.read_csv(path)
+    df.columns = [c.replace("\ufeff", "").strip() for c in df.columns]
 
-def read_csv(path: str) -> Tuple[List[str], List[Dict[str, float]]]:
-    with open(path, "r", newline="") as f:
-        reader = csv.DictReader(f)
-        if reader.fieldnames is None:
-            raise ValueError("CSV file has no header row.")
+    if "Time" not in df.columns:
+        raise ValueError(f"Missing required column 'Time'. Found columns: {list(df.columns)}")
 
-        # Normalize column names
-        raw_cols = reader.fieldnames
-        cols = [c.replace("\ufeff", "").strip() for c in raw_cols]
+    nf_cols = [c for c in df.columns if c != "Time"]
+    if not nf_cols:
+        raise ValueError("No NF columns found (only 'Time' present).")
 
-        if "Time" not in cols:
-            raise ValueError(
-                f"Missing required column 'Time'. Found columns: {cols}"
-            )
+    try:
+        X = df[nf_cols].astype(float).to_numpy()
+    except Exception as e:
+        raise ValueError("Non-numeric value found in NF columns.") from e
 
-        nf_cols = [c for c in cols if c != "Time"]
+    return nf_cols, X
 
-        rows: List[Dict[str, float]] = []
-        for r in reader:
-            row: Dict[str, float] = {}
-            for raw_c, norm_c in zip(raw_cols, cols):
-                if norm_c == "Time":
-                    continue
-                try:
-                    row[norm_c] = float(r[raw_c])
-                except Exception as e:
-                    raise ValueError(
-                        f"Non-numeric value in column '{norm_c}': {r[raw_c]!r}"
-                    ) from e
-            rows.append(row)
 
-        return nf_cols, rows
+def split_groups(X: np.ndarray) -> list[np.ndarray]:
+    idle = np.all(np.abs(X) <= 0, axis=1)
 
-def split_groups(nf_cols: List[str], rows: List[Dict[str, float]], eps: float):
-    groups: List[List[Dict[str, float]]] = []
-    current: List[Dict[str, float]] = []
+    groups: list[np.ndarray] = []
+    start = None
 
-    for row in rows:
-        values = [row[c] for c in nf_cols]
-        if is_idle_row(values, eps):
-            if current:
-                groups.append(current)
-                current = []
-        else:
-            current.append(row)
+    for i, is_idle in enumerate(idle):
+        if not is_idle and start is None:
+            start = i
+        elif is_idle and start is not None:
+            g = X[start:i]
+            if g.size:
+                groups.append(g)
+            start = None
 
-    if current:
-        groups.append(current)
+    if start is not None:
+        g = X[start:]
+        if g.size:
+            groups.append(g)
 
     return groups
 
-def group_stats(nf_cols: List[str], group_rows: List[Dict[str, float]]):
-    stats: Dict[str, Dict[str, float]] = {}
 
-    for c in nf_cols:
-        xs = [r[c] for r in group_rows]
-        stats[c] = {
-            "min": min(xs),
-            "max": max(xs),
-            "avg": mean(xs),
-        }
+def group_mean(group: np.ndarray) -> np.ndarray:
+    return np.mean(group, axis=0)
 
-    return stats
 
-def aggregate_over_groups(nf_cols: List[str], per_group_stats):
-    agg: Dict[str, Dict[str, float]] = {}
+def t_ci95_halfwidth(samples: np.ndarray) -> float:
+    n = samples.shape[0]
+    if n <= 1:
+        return 0.0
+    s = np.std(samples, ddof=1)
+    tcrit = stats.t.ppf(0.975, df=n - 1)
+    return float(tcrit * (s / np.sqrt(n)))
 
-    for c in nf_cols:
-        samples = [g[c]["avg"] for g in per_group_stats]
-        agg[c] = {
-            "mean": mean(samples),
-            "ci95_pm": ci95_halfwidth(samples),
-            "min": min(samples),
-            "max": max(samples),
-        }
 
-    return agg
+def aggregate_over_groups(group_means: np.ndarray) -> Summary:
+    m = float(np.mean(group_means))
+    ci = t_ci95_halfwidth(group_means)
+    return Summary(mean=m, ci95_half=ci)
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="Analyze per-NF power consumption across non-idle groups."
-    )
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Analyze per-NF power consumption across non-idle groups.")
     ap.add_argument("csv_path", help="Input CSV path")
-    ap.add_argument("--eps", type=float, default=0.0, help="Zero tolerance")
     ap.add_argument("--expected-groups", type=int, default=10, help="Expected number of groups")
-    ap.add_argument("--unit", choices=["W", "mW"], default="W", help="Output unit")
-
     args = ap.parse_args()
 
-    nf_cols, rows = read_csv(args.csv_path)
+    nf_cols, X = load_csv(args.csv_path)
 
-    scale = 1000.0 if args.unit == "mW" else 1.0
-    unit_label = args.unit
+    X = X * 1000.0 # to mW
 
-    if scale != 1.0:
-        for row in rows:
-            for c in nf_cols:
-                row[c] *= scale
-
-    eps_scaled = args.eps * scale
-
-    groups = split_groups(nf_cols, rows, eps_scaled)
+    groups = split_groups(X)
 
     if len(groups) != args.expected_groups:
         print(
             f"[!] ERROR: found {len(groups)} non-idle groups, expected {args.expected_groups}.",
             file=sys.stderr,
         )
-        sys.exit(2)
+        return 2
 
-    per_group = []
+    per_group_means = []
+
     for i, g in enumerate(groups, start=1):
-        st = group_stats(nf_cols, g)
-        per_group.append(st)
+        gavg = group_mean(g)
+        per_group_means.append(gavg)
 
-        print(f"\n=== Group {i} (rows={len(g)}) ===")
-        for c in nf_cols:
-            print(
-                f"{c:>6}  avg={st[c]['avg']:.6f} {unit_label}  "
-                f"min={st[c]['min']:.6f} {unit_label}  "
-                f"max={st[c]['max']:.6f} {unit_label}"
-            )
+        # print(f"\n=== Group {i} (rows={g.shape[0]}) ===")
+        # for name, a in zip(nf_cols, gavg):
+        #     print(f"{name:>6}  avg={a:.6f} {args.unit}")
 
-    agg = aggregate_over_groups(nf_cols, per_group)
+    per_group_means = np.vstack(per_group_means)
+    print(f"\n=== Aggregated ===")
 
-    print(f"\n=== Aggregated over {args.expected_groups} groups ===")
-    for c in nf_cols:
-        a = agg[c]
+    for j, name in enumerate(nf_cols):
+        s = aggregate_over_groups(per_group_means[:, j])
         print(
-            f"{c:>6}  mean={a['mean']:.6f} {unit_label}  "
-            f"CI95=±{a['ci95_pm']:.6f} {unit_label}  "
-            f"min={a['min']:.6f} {unit_label}  "
-            f"max={a['max']:.6f} {unit_label}"
+            f"{name:>6}  mean={s.mean:.6f} mW   "
+            f" CI95=±{s.ci95_half:.6f} mW"
         )
-    
-    # final_line = ", ".join(
-    #     f"{agg[c]['mean']:.4f} ± {agg[c]['ci95_pm']:.3f}"
-    #     for c in nf_cols
-    # )
-    # print("\n"+final_line)
+
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
