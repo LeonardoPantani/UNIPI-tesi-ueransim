@@ -1,59 +1,91 @@
-<p align="center">
-  <a href="https://github.com/aligungr/UERANSIM"><img src="/.github/logo.png" width="75" title="UERANSIM"></a>
-</p>
-<p align="center">
-<img src="https://img.shields.io/badge/UERANSIM-v3.2.7-blue" />
-<img src="https://img.shields.io/badge/3GPP-R15-orange" />
-<img src="https://img.shields.io/badge/License-AGPL--3.0-green"/>
-</p>
+# UNIPI – UERANSIM Experimental Framework
 
-**UERANSIM** <small>(pronounced "ju-i ræn sɪm")</small>, is the open source state-of-the-art 5G UE and RAN (gNodeB)
-simulator. UE and RAN can be considered as a 5G mobile phone and a base station in basic terms. The project can be used for
-testing 5G Core Network and studying 5G System.
+This repository is part of the Master's Thesis:
 
-UERANSIM introduces the world's first open source 5G-SA UE and gNodeB implementation.
+**Post-Quantum Cryptography in 5G Core Networks: Implementation and Cost Analysis in Open5GS**
 
-> [!IMPORTANT]
-> UERANSIM is no longer actively developed by the maintainer. However community contributions are welcomed.
+This repository is based on the original UERANSIM project and is used as the UE and gNodeB simulation environment within the experimental 5G SA testbed.
 
-## Current Status
+The purpose of this repository is to integrate the UERANSIM project into a fully automated and reproducible benchmarking framework for evaluating the impact of Post-Quantum Cryptography on 5G Core procedures.
 
-Basic functionalities of UE and gNodeB are fully functional and ready to use. However some of the features are not complete.
-More details can be found at [Feature Set](https://github.com/aligungr/UERANSIM/wiki/Feature-Set).
 
-On the other hand, UERANSIM does not fully provide physical layer. 5G-NR radio interface is partially implemented, and simply simulated over UDP protocol.
+# Important! – Original Installation Required
 
-<p align="center">
-<img src="https://img.shields.io/badge/Radio%20Interface-simulated-orange" alt="OS Linux"/>
-<img src="https://img.shields.io/badge/Control%20Plane-functional-green" alt="OS Linux"/>  
-<img src="https://img.shields.io/badge/User%20Plane-functional-green" alt="OS Linux"/>
-</p>
+Before using this repository, you must first install UERANSIM by following the official installation guide provided by the original project:
 
-## Documentation
+[https://github.com/aligungr/UERANSIM](https://github.com/aligungr/UERANSIM)
 
-You can find the documentation on [UERANSIM Wiki](https://github.com/aligungr/UERANSIM/wiki).
+This repository does **not** replace the original installation procedure.
+It assumes that UERANSIM is correctly installed and operational according to the upstream documentation.
 
-And, since the project is rapidly developing, please make sure that you have always
-the [latest](https://github.com/aligungr/UERANSIM/releases) UERANSIM.
 
-## Contributing
+# Overview
 
-Any contributions you make are greatly appreciated via [Pull Request](https://github.com/aligungr/UERANSIM/pulls).
+Within the thesis testbed described in Chapter 5 and Chapter 6, UERANSIM is used to emulate:
 
-## Supporting
+* 5G User Equipment (UE)
+* 5G gNodeB (gNB)
 
-You can support UERANSIM by:
+These components interact with the modified Open5GS Core Network in a 5G Stand-Alone architecture.
 
-- Starring the GitHub repository,
-- Donating on [Open Collective](https://opencollective.com/UERANSIM)
-- Creating pull requests, submitting bugs, suggesting new features or documentation updates.
+This repository extends the usage of UERANSIM by providing:
 
-## License
+* Automated UE registration scripts
+* Measurements results
 
-Copyright (c) 2025 ALİ GÜNGÖR.
 
-All source code and related files including documentation and wiki pages are
-dual licensed with [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.en.html) and a commercial license.
+# measurements_scripts directory
 
-> [!WARNING]
-> Closed-source commercial usage of UERANSIM may **not** be permitted with the AGPL-3.0. If that license is not compatable with your use case, please contact [ueransim@gmail.com](mailto:ueransim@gmail.com) to buy a commercial license.
+The `measurements_scripts/` directory contains the automation layer used to execute all UE-side experiments described in the thesis.
+
+These scripts allow:
+
+* Running single UE registration experiments
+* Running batch UE registration experiments (multiple UEs sequentially or concurrently)
+* Controlling UE startup timing
+* Coordinating gNB and UE lifecycle
+* Automatically collecting UE-side logs
+
+
+# measurements_results directory
+
+The `measurements_results/` directory contains:
+
+* Raw UE logs from all experimental campaigns
+* Structured CSV files derived from UE registration timings
+* Organized datasets for single and batch modes
+* Data used for latency analysis presented in Chapter 6 
+
+These results correspond to:
+
+* UE Registration Latency measurements
+* Batch Registration behavior
+* Failure cases related to timer expirations (e.g. T3510)
+
+
+# Reproducibility
+
+To reproduce the UE-side experiments:
+
+1. Install UERANSIM following the official upstream guide
+2. Configure it according to the thesis testbed topology
+3. Use the provided scripts in `measurements_scripts/`
+4. Collect structured results inside `measurements_results/`
+
+This repository provides:
+
+* A structured UE automation framework
+* Reproducible experiment execution
+* Complete UE-side datasets
+
+
+# Scope
+
+This repository is intended for:
+
+* Researchers evaluating 5G Core performance under cryptographic modifications
+* Experimental 5G SA testbeds
+* UE registration latency analysis
+* Reproducible performance benchmarking
+
+It is not intended to replace or fork UERANSIM's core implementation, nor to provide production-ready modifications.
